@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { Card, Title, Text, Button, Chip } from 'react-native-paper';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { driverAPI, tripAPI } from '../../services/api';
 import socketService from '../../services/socket';
 import locationService from '../../services/location';
+import { parsePolyline, generatePolylineFromStops } from '../../utils/polylineUtils';
 
 export default function ActiveTripScreen({ route, navigation }) {
   const { tripId } = route.params;
@@ -129,6 +130,11 @@ export default function ActiveTripScreen({ route, navigation }) {
     longitudeDelta: 0.05,
   };
 
+  // Parse polyline for route display
+  const routeCoordinates = trip.routePolyline
+    ? parsePolyline(trip.routePolyline)
+    : generatePolylineFromStops(trip.stops);
+
   return (
     <View style={styles.container}>
       <MapView
@@ -143,6 +149,16 @@ export default function ActiveTripScreen({ route, navigation }) {
         showsUserLocation
         followsUserLocation={isActive}
       >
+        {/* Route polyline */}
+        {routeCoordinates.length > 0 && (
+          <Polyline
+            coordinates={routeCoordinates}
+            strokeColor="#03DAC6"
+            strokeWidth={3}
+            lineDashPattern={[1]}
+          />
+        )}
+
         {trip.stops.map((stop, index) => (
           <Marker
             key={index}

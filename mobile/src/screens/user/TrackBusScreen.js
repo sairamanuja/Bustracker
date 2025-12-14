@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Card, Title, Text, Chip } from 'react-native-paper';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import socketService from '../../services/socket';
 import { tripAPI } from '../../services/api';
+import { parsePolyline, generatePolylineFromStops } from '../../utils/polylineUtils';
 
 export default function TrackBusScreen({ route }) {
   const { tripId } = route.params;
@@ -82,6 +83,11 @@ export default function TrackBusScreen({ route }) {
     return `${hours}h ago`;
   };
 
+  // Parse polyline for route display
+  const routeCoordinates = trip?.routePolyline
+    ? parsePolyline(trip.routePolyline)
+    : trip?.stops ? generatePolylineFromStops(trip.stops) : [];
+
   return (
     <View style={styles.container}>
       <MapView
@@ -91,6 +97,16 @@ export default function TrackBusScreen({ route }) {
         showsUserLocation
         followsUserLocation
       >
+        {/* Route polyline */}
+        {routeCoordinates.length > 0 && (
+          <Polyline
+            coordinates={routeCoordinates}
+            strokeColor="#6200ee"
+            strokeWidth={3}
+            lineDashPattern={[1]}
+          />
+        )}
+
         {/* Bus location marker */}
         {busLocation && (
           <Marker

@@ -5,6 +5,7 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Picker } from '@react-native-picker/picker';
 import { tripAPI, bookingAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { parsePolyline, generatePolylineFromStops } from '../../utils/polylineUtils';
 
 export default function TripDetailsScreen({ route, navigation }) {
   const { tripId } = route.params;
@@ -118,6 +119,11 @@ export default function TripDetailsScreen({ route, navigation }) {
     longitudeDelta: 0.1,
   };
 
+  // Parse polyline for route display
+  const routeCoordinates = trip.routePolyline
+    ? parsePolyline(trip.routePolyline)
+    : generatePolylineFromStops(trip.stops);
+
   return (
     <ScrollView style={styles.container}>
       <MapView
@@ -125,6 +131,16 @@ export default function TripDetailsScreen({ route, navigation }) {
         style={styles.map}
         initialRegion={region}
       >
+        {/* Route polyline */}
+        {routeCoordinates.length > 0 && (
+          <Polyline
+            coordinates={routeCoordinates}
+            strokeColor="#6200ee"
+            strokeWidth={3}
+            lineDashPattern={[1]}
+          />
+        )}
+
         {trip.stops.map((stop, index) => (
           <Marker
             key={index}
