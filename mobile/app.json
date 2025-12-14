@@ -29,10 +29,15 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.bustracking.app",
+      "compileSdkVersion": 35,
+      "targetSdkVersion": 35,
+      "buildToolsVersion": "35.0.0",
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
-        "CAMERA"
+        "CAMERA",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ],
       "config": {
         "googleMaps": {
@@ -45,11 +50,30 @@
     },
     "extra": {
       "apiUrl": "https://bustracker-f6gy.onrender.com",
-      "googleMapsApiKey": "AIzaSyBev5-6JJg8UwUye0yEZbqzdPfjdxXtctY"
+      "googleMapsApiKey": "AIzaSyBev5-6JJg8UwUye0yEZbqzdPfjdxXtctY",
+      "eas": {
+        "projectId": "f2af613c-1324-40be-afd6-f85368d354db"
+      }
     },
     "plugins": [
       "expo-font",
-      "expo-barcode-scanner"
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to scan QR codes for booking verification."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "35.0.0"
+          }
+        }
+      ],
+      "./app.plugin.js"
     ]
   }
 }

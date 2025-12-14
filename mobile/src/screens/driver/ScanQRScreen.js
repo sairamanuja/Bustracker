@@ -1,37 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet, Alert, TextInput } from 'react-native';
 import { Text, Button, Card, Title } from 'react-native-paper';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { driverAPI } from '../../services/api';
 
 export default function ScanQRScreen({ navigation }) {
-  const [hasPermission, setHasPermission] = useState(null);
+  const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const [barcodeAvailable, setBarcodeAvailable] = useState(false);
-  const [BarCodeScanner, setBarCodeScanner] = useState(null);
+  const [manualQRCode, setManualQRCode] = useState('');
+  const [showManualInput, setShowManualInput] = useState(false);
 
   useEffect(() => {
-    // Check if barcode scanner is available without importing it
-    // Since expo-barcode-scanner requires custom build, we'll use fallback
-    setBarcodeAvailable(false);
-    setHasPermission(false);
-  }, []);
+    // Request permission on mount
+    if (permission && !permission.granted && !permission.canAskAgain) {
+      // Permission denied permanently
+    }
+  }, [permission]);
 
-  const requestPermission = async (Scanner = BarCodeScanner) => {
-    if (!Scanner) {
-      setHasPermission(false);
+  const handleManualVerification = async () => {
+    if (!manualQRCode.trim()) {
+      Alert.alert('Error', 'Please enter a QR code');
       return;
     }
-    try {
-      const { status } = await Scanner.requestPermissionsAsync();
-      setHasPermission(status === 'granted');
-    } catch (error) {
-      console.error('Permission request failed:', error);
-      setHasPermission(false);
-    }
+    await handleBarCodeScanned({ type: 'qr', data: manualQRCode.trim() });
   };
 
   const handleBarCodeScanned = async ({ type, data }) => {
+    if (scanned) return; // Prevent multiple scans
+    
     setScanned(true);
     setVerifying(true);
 
@@ -71,70 +68,24 @@ export default function ScanQRScreen({ navigation }) {
     }
   };
 
-  if (hasPermission === null) {
+  // Show loading while checking permission
+  if (!permission) {
     return (
       <View style={styles.container}>
-        <Text>Requesting camera permission...</Text>
+        <Text style={styles.loadingText}>Requesting camera permission...</Text>
       </View>
     );
   }
 
-  // Handle missing barcode scanner module
-  if (!barcodeAvailable) {
-    return (
-      <View style={styles.container}>
-        <Card style={styles.card}>
-          <Card.Content>
-            <Title>QR Scanner Not Available</Title>
-            <Text style={styles.text}>
-              The barcode scanner requires a custom development build.{'\n\n'}
-              For now, you can manually enter the booking QR code.
-            </Text>
-            <Button
-              mode="contained"
-              onPress={() => {
-                Alert.prompt(
-                  'Enter QR Code',
-                  'Please enter the booking QR code:',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Verify',
-                      onPress: async (qrCode) => {
-                        if (qrCode) {
-                          handleBarCodeScanned({ type: 'qr', data: qrCode });
-                        }
-                      }
-                    }
-                  ],
-                  'plain-text'
-                );
-              }}
-              style={styles.button}
-            >
-              Enter QR Code Manually
-            </Button>
-            <Button
-              mode="outlined"
-              onPress={() => navigation.goBack()}
-              style={[styles.button, { marginTop: 10 }]}
-            >
-              Go Back
-            </Button>
-          </Card.Content>
-        </Card>
-      </View>
-    );
-  }
-
-  if (hasPermission === false) {
+  // Show permission request screen
+  if (!permission.granted) {
     return (
       <View style={styles.container}>
         <Card style={styles.card}>
           <Card.Content>
             <Title>Camera Permission Required</Title>
             <Text style={styles.text}>
-              Please grant camera permission to scan QR codes
+              Please grant camera permission to scan QR codes, or enter the QR code manually.
             </Text>
             <Button
               mode="contained"
@@ -143,50 +94,18 @@ export default function ScanQRScreen({ navigation }) {
             >
               Grant Permission
             </Button>
-          </Card.Content>
-        </Card>
-      </View>
-    );
-  }
-
-  if (!BarCodeScanner) {
-    return (
-      <View style={styles.container}>
-        <Card style={styles.card}>
-          <Card.Content>
-            <Title>QR Scanner Not Available</Title>
-            <Text style={styles.text}>
-              The barcode scanner requires a custom development build.{'\n\n'}
-              For now, you can manually enter the booking QR code.
-            </Text>
             <Button
-              mode="contained"
-              onPress={() => {
-                Alert.prompt(
-                  'Enter QR Code',
-                  'Please enter the booking QR code:',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Verify',
-                      onPress: async (qrCode) => {
-                        if (qrCode) {
-                          handleBarCodeScanned({ type: 'qr', data: qrCode });
-                        }
-                      }
-                    }
-                  ],
-                  'plain-text'
-                );
-              }}
-              style={styles.button}
+              mode="outlined"
+              onPress={() => setShowManualInput(true)}
+              style={[styles.button, { marginTop: 10 }]}
+              icon="keyboard"
             >
               Enter QR Code Manually
             </Button>
             <Button
-              mode="outlined"
+              mode="text"
               onPress={() => navigation.goBack()}
-              style={[styles.button, { marginTop: 10 }]}
+              style={[styles.button, { marginTop: 5 }]}
             >
               Go Back
             </Button>
@@ -196,11 +115,67 @@ export default function ScanQRScreen({ navigation }) {
     );
   }
 
+  // Show manual input overlay if requested
+  if (showManualInput) {
+    return (
+      <View style={styles.container}>
+        <Card style={styles.card}>
+          <Card.Content>
+            <Title>Enter QR Code Manually</Title>
+            <Text style={styles.text}>
+              Type or paste the booking QR code below:
+            </Text>
+            
+            <View style={styles.manualInputContainer}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Enter QR Code"
+                value={manualQRCode}
+                onChangeText={setManualQRCode}
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholderTextColor="#999"
+                editable={!verifying}
+              />
+              <View style={styles.inputButtons}>
+                <Button
+                  mode="contained"
+                  onPress={handleManualVerification}
+                  disabled={verifying || !manualQRCode.trim()}
+                  loading={verifying}
+                  style={styles.verifyButton}
+                >
+                  Verify
+                </Button>
+                <Button
+                  mode="outlined"
+                  onPress={() => {
+                    setShowManualInput(false);
+                    setManualQRCode('');
+                  }}
+                  style={styles.cancelButton}
+                  disabled={verifying}
+                >
+                  Cancel
+                </Button>
+              </View>
+            </View>
+          </Card.Content>
+        </Card>
+      </View>
+    );
+  }
+
+  // Show camera scanner
   return (
     <View style={styles.container}>
-      <BarCodeScanner
-        onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
+      <CameraView
         style={StyleSheet.absoluteFillObject}
+        facing="back"
+        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+        barcodeScannerSettings={{
+          barcodeTypes: ['qr'],
+        }}
       />
 
       <View style={styles.overlay}>
@@ -224,6 +199,14 @@ export default function ScanQRScreen({ navigation }) {
               Scan Again
             </Button>
           )}
+          <Button
+            mode="text"
+            onPress={() => setShowManualInput(true)}
+            style={styles.manualButton}
+            icon="keyboard"
+          >
+            Enter Manually Instead
+          </Button>
         </Card.Content>
       </Card>
     </View>
@@ -233,9 +216,13 @@ export default function ScanQRScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     backgroundColor: '#000',
+  },
+  loadingText: {
+    color: '#fff',
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 20,
   },
   card: {
     padding: 20,
@@ -279,5 +266,31 @@ const styles = StyleSheet.create({
   },
   rescanButton: {
     marginTop: 15,
+  },
+  manualButton: {
+    marginTop: 10,
+  },
+  manualInputContainer: {
+    marginTop: 20,
+  },
+  textInput: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 5,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 15,
+    color: '#000',
+  },
+  inputButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  verifyButton: {
+    flex: 1,
+  },
+  cancelButton: {
+    flex: 1,
   },
 });

@@ -1,15 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl, Alert } from 'react-native';
 import { Card, Title, Paragraph, Button, FAB, Text, Chip } from 'react-native-paper';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE, Circle } from 'react-native-maps';
 import { userAPI } from '../../services/api';
 import socketService from '../../services/socket';
+import locationService from '../../services/location';
 import { useAuth } from '../../context/AuthContext';
 
 export default function HomeScreen({ navigation }) {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showMap, setShowMap] = useState(true);
+  const [userLocation, setUserLocation] = useState(null);
+  const [locationWatch, setLocationWatch] = useState(null);
+  const mapRef = useRef(null);
   const [region, setRegion] = useState({
     latitude: 37.78825,
     longitude: -122.4324,
@@ -21,14 +25,62 @@ export default function HomeScreen({ navigation }) {
 
   useEffect(() => {
     loadTrips();
+    startLocationTracking();
 
     // Listen for real-time location updates
     socketService.onLocationUpdate(handleLocationUpdate);
 
     return () => {
       socketService.offLocationUpdate(handleLocationUpdate);
+      stopLocationTracking();
     };
   }, []);
+
+  const startLocationTracking = async () => {
+    try {
+      // Request permissions
+      const granted = await locationService.requestPermissions();
+      if (!granted) {
+        console.log('Location permission not granted');
+        return;
+      }
+
+      // Get initial location
+      const initialLocation = await locationService.getCurrentLocation();
+      if (initialLocation) {
+        setUserLocation(initialLocation);
+        // Center map on user location if no trips available
+        if (trips.length === 0) {
+          setRegion({
+            latitude: initialLocation.latitude,
+            longitude: initialLocation.longitude,
+            latitudeDelta: 0.05,
+            longitudeDelta: 0.05,
+          });
+        }
+      }
+
+      // Start watching location updates
+      const watch = await locationService.startWatchingLocation(
+        (location) => {
+          setUserLocation(location);
+        },
+        10000 // Update every 10 seconds for users (less frequent than drivers)
+      );
+
+      setLocationWatch(watch);
+    } catch (error) {
+      console.error('Location tracking error:', error);
+      // Don't show alert, just silently fail - location is optional for users
+    }
+  };
+
+  const stopLocationTracking = () => {
+    if (locationWatch) {
+      locationService.stopWatchingLocation();
+      setLocationWatch(null);
+    }
+  };
 
   const loadTrips = async () => {
     setLoading(true);
@@ -42,13 +94,20 @@ export default function HomeScreen({ navigation }) {
         socketService.trackTrip(trip.id);
       });
 
-      // Center map on first trip if available
+      // Center map on first trip if available, otherwise center on user location
       if (activeTrips.length > 0 && activeTrips[0].currentLocation) {
         setRegion({
           latitude: activeTrips[0].currentLocation.lat,
           longitude: activeTrips[0].currentLocation.lng,
           latitudeDelta: 0.1,
           longitudeDelta: 0.1,
+        });
+      } else if (userLocation) {
+        setRegion({
+          latitude: userLocation.latitude,
+          longitude: userLocation.longitude,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
         });
       }
     } catch (error) {
@@ -134,11 +193,39 @@ export default function HomeScreen({ navigation }) {
     <View style={styles.container}>
       {showMap && (
         <MapView
+          ref={mapRef}
           provider={PROVIDER_GOOGLE}
           style={styles.map}
           region={region}
           onRegionChangeComplete={setRegion}
+          showsMyLocationButton={true}
         >
+          {/* User's current location marker */}
+          {userLocation && (
+            <>
+              <Marker
+                coordinate={{
+                  latitude: userLocation.latitude,
+                  longitude: userLocation.longitude,
+                }}
+                title="Your Location"
+                description="You are here"
+                pinColor="green"
+              />
+              <Circle
+                center={{
+                  latitude: userLocation.latitude,
+                  longitude: userLocation.longitude,
+                }}
+                radius={100} // 100 meters radius
+                strokeWidth={2}
+                strokeColor="#4CAF50"
+                fillColor="rgba(76, 175, 80, 0.1)"
+              />
+            </>
+          )}
+
+          {/* Bus trip markers */}
           {trips.map((trip) => {
             if (trip.currentLocation) {
               return (
