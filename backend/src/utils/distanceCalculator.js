@@ -12,7 +12,8 @@ const calculateRouteDistances = async (startLocation, endLocation, waypoints = [
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;
 
     if (!apiKey) {
-      throw new Error('Google Maps API key not configured');
+      console.warn('Google Maps API key not configured, using fallback distance calculation');
+      return calculateRouteDistancesFallback(startLocation, endLocation, waypoints);
     }
 
     // Build waypoints parameter
@@ -33,7 +34,12 @@ const calculateRouteDistances = async (startLocation, endLocation, waypoints = [
     const response = await axios.get(url, { params });
 
     if (response.data.status !== 'OK') {
-      throw new Error(`Google Maps API error: ${response.data.status}`);
+      const errorMessage = response.data.error_message || response.data.status;
+      console.warn(`Google Maps API error: ${response.data.status} - ${errorMessage}`);
+      console.warn('Falling back to Haversine distance calculation');
+      
+      // Fallback to Haversine calculation
+      return calculateRouteDistancesFallback(startLocation, endLocation, waypoints);
     }
 
     const route = response.data.routes[0];
@@ -74,8 +80,85 @@ const calculateRouteDistances = async (startLocation, endLocation, waypoints = [
     };
   } catch (error) {
     console.error('Route calculation error:', error.message);
-    throw new Error('Failed to calculate route distances');
+    console.warn('Falling back to Haversine distance calculation');
+    
+    // Fallback to Haversine calculation
+    return calculateRouteDistancesFallback(startLocation, endLocation, waypoints);
   }
+};
+
+/**
+ * Fallback distance calculation using Haversine formula
+ * This is used when Google Maps API is unavailable or returns an error
+ */
+const calculateRouteDistancesFallback = (startLocation, endLocation, waypoints = []) => {
+  const enrichedStops = [];
+  let cumulativeDistance = 0;
+
+  // Add start location
+  enrichedStops.push({
+    ...startLocation,
+    distance_from_start: 0
+  });
+
+  // Calculate distances between consecutive points
+  let previousPoint = { lat: startLocation.lat, lng: startLocation.lng };
+
+  // Process waypoints
+  waypoints.forEach((waypoint) => {
+    const distance = calculateHaversineDistance(
+      previousPoint.lat,
+      previousPoint.lng,
+      waypoint.lat,
+      waypoint.lng
+    );
+    cumulativeDistance += distance;
+
+    enrichedStops.push({
+      ...waypoint,
+      distance_from_start: parseFloat(cumulativeDistance.toFixed(2))
+    });
+
+    previousPoint = { lat: waypoint.lat, lng: waypoint.lng };
+  });
+
+  // Calculate distance to end location
+  const finalDistance = calculateHaversineDistance(
+    previousPoint.lat,
+    previousPoint.lng,
+    endLocation.lat,
+    endLocation.lng
+  );
+  cumulativeDistance += finalDistance;
+
+  // Add end location
+  enrichedStops.push({
+    ...endLocation,
+    distance_from_start: parseFloat(cumulativeDistance.toFixed(2))
+  });
+
+  // Generate a simple polyline (straight line approximation)
+  // This is a basic polyline - in production, you might want to use a better approximation
+  const simplePolyline = generateSimplePolyline(enrichedStops);
+
+  return {
+    polyline: simplePolyline,
+    totalDistance: parseFloat(cumulativeDistance.toFixed(2)),
+    stops: enrichedStops
+  };
+};
+
+/**
+ * Generate a simple polyline from stops (basic approximation)
+ * Note: This is a simplified polyline format. For proper map display,
+ * consider using @mapbox/polyline or similar library for encoding.
+ * For now, we use a simple format that can be parsed by the frontend.
+ */
+const generateSimplePolyline = (stops) => {
+  // Create a simple path connecting all stops
+  // Format: "lat1,lng1|lat2,lng2|lat3,lng3"
+  const points = stops.map(stop => `${stop.lat},${stop.lng}`);
+  return points.join('|');
 };
 
 /**

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl, Alert } from 'react-native';
 import { Card, Title, Text, Button } from 'react-native-paper';
 import { adminAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -25,6 +25,23 @@ export default function DashboardScreen({ navigation }) {
     }
   };
 
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -39,7 +56,9 @@ export default function DashboardScreen({ navigation }) {
           <Text style={styles.email}>{user?.email}</Text>
         </Card.Content>
         <Card.Actions>
-          <Button onPress={logout}>Logout</Button>
+          <Button onPress={handleLogout} mode="outlined" icon="logout">
+            Logout
+          </Button>
         </Card.Actions>
       </Card>
 

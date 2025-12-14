@@ -10,7 +10,24 @@ export default function WalletScreen() {
   const [showAddMoney, setShowAddMoney] = useState(false);
   const [amount, setAmount] = useState('');
   const [adding, setAdding] = useState(false);
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, logout } = useAuth();
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+          }
+        }
+      ]
+    );
+  };
 
   useEffect(() => {
     loadTransactions();
@@ -88,13 +105,23 @@ export default function WalletScreen() {
         <Card.Content>
           <Text style={styles.balanceLabel}>Current Balance</Text>
           <Title style={styles.balanceAmount}>${user?.walletBalance || 0}</Title>
-          <Button
-            mode="contained"
-            onPress={() => setShowAddMoney(true)}
-            style={styles.addButton}
-          >
-            Add Money
-          </Button>
+          <View style={styles.buttonRow}>
+            <Button
+              mode="contained"
+              onPress={() => setShowAddMoney(true)}
+              style={styles.addButton}
+            >
+              Add Money
+            </Button>
+            <Button
+              mode="outlined"
+              onPress={handleLogout}
+              icon="logout"
+              style={styles.logoutButton}
+            >
+              Logout
+            </Button>
+          </View>
         </Card.Content>
       </Card>
 
@@ -194,8 +221,16 @@ const styles = StyleSheet.create({
     color: '#4CAF50',
     marginVertical: 10,
   },
-  addButton: {
+  buttonRow: {
+    flexDirection: 'row',
     marginTop: 10,
+    gap: 10,
+  },
+  addButton: {
+    flex: 1,
+  },
+  logoutButton: {
+    flex: 1,
   },
   sectionTitle: {
     fontSize: 18,

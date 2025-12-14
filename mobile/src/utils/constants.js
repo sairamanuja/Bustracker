@@ -1,8 +1,8 @@
 import Constants from 'expo-constants';
 
 // API Configuration
-export const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
-export const GOOGLE_MAPS_API_KEY = Constants.expoConfig?.extra?.googleMapsApiKey || '';
+export const API_URL = Constants.expoConfig?.extra?.apiUrl || 'https://bustracker-f6gy.onrender.com';
+export const GOOGLE_MAPS_API_KEY = Constants.expoConfig?.extra?.googleMapsApiKey || 'AIzaSyBev5-6JJg8UwUye0yEZbqzdPfjdxXtctY';
 
 // Storage Keys
 export const STORAGE_KEYS = {

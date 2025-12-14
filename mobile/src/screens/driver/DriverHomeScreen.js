@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
+import { View, StyleSheet, FlatList, RefreshControl, Alert } from 'react-native';
 import { Card, Title, Paragraph, Button, FAB, Chip, Text } from 'react-native-paper';
 import { driverAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -7,7 +7,24 @@ import { useAuth } from '../../context/AuthContext';
 export default function DriverHomeScreen({ navigation }) {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(false);
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+          }
+        }
+      ]
+    );
+  };
 
   useEffect(() => {
     loadTrips();
@@ -108,6 +125,11 @@ export default function DriverHomeScreen({ navigation }) {
           <Title>Welcome, {user?.name}</Title>
           <Paragraph>Manage your trips and share your location in real-time</Paragraph>
         </Card.Content>
+        <Card.Actions>
+          <Button onPress={handleLogout} mode="outlined" icon="logout">
+            Logout
+          </Button>
+        </Card.Actions>
       </Card>
 
       <FlatList
